@@ -1,15 +1,20 @@
-...
+import os
+from telegram.ext import Updater, Filters, MessageHandler, CommandHandler
+from telegram import ReplyKeyboardMarkup
+from dotenv import load_dotenv
+
+class NoTokenInVenv(Exception):
+    pass
 
 load_dotenv()
 
-
-PRACTICUM_TOKEN = ...
-TELEGRAM_TOKEN = ...
-TELEGRAM_CHAT_ID = ...
+practicum_token = os.getenv('PRACTICUM_TOKEN')
+telegram_token = os.getenv('TELEGRAM_TOKEN')
+telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
+HEADERS = {'Authorization': f'OAuth {practicum_token}'}
 
 
 HOMEWORK_VERDICTS = {
@@ -20,7 +25,10 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    ...
+    if None in (practicum_token, telegram_token, telegram_chat_id):
+        raise NoTokenInVenv(
+            "need a token, check the instructions .env.example"
+        )
 
 
 def send_message(bot, message):
