@@ -1,4 +1,6 @@
 import os
+from pprint import pprint
+import requests
 from telegram.ext import Updater, Filters, MessageHandler, CommandHandler
 from telegram import ReplyKeyboardMarkup
 from dotenv import load_dotenv
@@ -36,7 +38,10 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    ...
+    homework_statuses = requests.get(
+        ENDPOINT, headers=HEADERS, params=timestamp
+    )
+    return homework_statuses.json()
 
 
 def check_response(response):
@@ -71,4 +76,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    payload = {'from_date': 1549962000}
+    pprint(get_api_answer(payload))
