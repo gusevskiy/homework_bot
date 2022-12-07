@@ -1,12 +1,18 @@
+from http import HTTPStatus
 import os
 from pprint import pprint
+import logging
 import requests
 from telegram.ext import Updater, Filters, MessageHandler, CommandHandler
 from telegram import ReplyKeyboardMarkup
 from dotenv import load_dotenv
+import telegram
+import time
 
-class NoTokenInVenv(Exception):
-    pass
+logging.basicConfig(
+    filename='log_bot.log',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO)
 
 load_dotenv()
 
@@ -25,57 +31,60 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-
 def check_tokens():
     if None in (practicum_token, telegram_token, telegram_chat_id):
-        raise NoTokenInVenv(
-            "need a token, check the instructions .env.example"
-        )
-
+        logging.warning("need a token, check the instructions .env.example")
+        raise Exception("need a token, check the instructions .env.example")
 
 def send_message(bot, message):
-    ...
+    bot.send_message(telegram_chat_id, message)
 
 
 def get_api_answer(timestamp):
     homework_statuses = requests.get(
-        ENDPOINT, headers=HEADERS, params=timestamp
-    )
-    return homework_statuses.json()
+            ENDPOINT, headers=HEADERS, params=timestamp
+        )
+    if homework_statuses.status_code == HTTPStatus.OK:
+        return homework_statuses.json()
+    logging.error("No connect API")
+    raise ConnectionError("No connect API")
 
 
 def check_response(response):
-    ...
+    if type(response) is not dict:
+        logging.error("need a dict")
+        raise ValueError("need a dict")
 
 
 def parse_status(homework):
-    ...
-
+    homework_name = homework['homeworks'][0]['homework_name']
+    verdict = homework['homeworks'][0]['reviewer_comment']
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
     """Основная логика работы бота."""
+    check_tokens()
+    timestamp = int(time.time())- 1296000 - 1296000
+    # print(timestamp)
+    payload = {'from_date': timestamp} 
+    dict_api = get_api_answer(payload)
+    # print(dict_api)
+    message = parse_status(dict_api)
+    # print(message)
+    bot = telegram.Bot(token=telegram_token)
+    send_message(bot, message)
+    
 
-    ...
+    # while True:
+    #     try:
+            
 
-    bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
-
-    ...
-
-    while True:
-        try:
-
-            ...
-
-        except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            ...
-        ...
-
+    #     except Exception as error:
+    #         message = f'Сбой в работе программы: {error}'
+    #         ...
+    #     ...
 
 if __name__ == '__main__':
-    # main()
-    payload = {'from_date': 1549962000}
-    pprint(get_api_answer(payload))
+    main()
+    
