@@ -1,20 +1,18 @@
+from http import HTTPStatus
 import os
 from pprint import pprint
 import logging
-import json
 import requests
 from telegram.ext import Updater, Filters, MessageHandler, CommandHandler
 from telegram import ReplyKeyboardMarkup
 from dotenv import load_dotenv
-from http import HTTPStatus
+import telegram
+import time
 
 logging.basicConfig(
     filename='log_bot.log',
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
-    encoding='utf8',
-)
-
+    level=logging.INFO)
 
 load_dotenv()
 
@@ -27,11 +25,21 @@ ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {practicum_token}'}
 
 
+HOMEWORK_VERDICTS = {
+    'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
+    'reviewing': 'Работа взята на проверку ревьюером.',
+    'rejected': 'Работа проверена: у ревьюера есть замечания.'
+}
+
 def check_tokens():
     if None in (practicum_token, telegram_token, telegram_chat_id):
-        logging.warning("need a token, check instructions .env.example")
-    
-    
+        logging.warning("need a token, check the instructions .env.example")
+        raise Exception("need a token, check the instructions .env.example")
+
+def send_message(bot, message):
+    bot.send_message(telegram_chat_id, message)
+
+
 def get_api_answer(timestamp):
     homework_statuses = requests.get(
             ENDPOINT, headers=HEADERS, params=timestamp
@@ -40,30 +48,48 @@ def get_api_answer(timestamp):
         return homework_statuses.json()
     logging.error("No connect API")
     raise ConnectionError("No connect API")
-    
+
+
 def check_response(response):
     if type(response) is not dict:
-        logging.error("need")
-        
-def parse_status(homework):
-    homework_name = homework['homeworks'][0]['homework_name']
-    verdict = homework['homeworks'][0]['reviewer_comment']
+        logging.error("need a dict")
+        raise ValueError("need a dict")
 
-    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-        
-def send_message(bot, message):
-    bot.send_message(telegram_chat_id, message)
-    
-if __name__ == '__main__':
+
+def parse_status(homework):
+    if "homeworks" in homework.keys():
+        homework_sort = sorted(
+            homework["homeworks"], key=lambda d: d['date_updated']
+        )[::-1]
+        homework_name = homework_sort[0]['homework_name']
+        verdict = HOMEWORK_VERDICTS[homework_sort[0]['status']]
+        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    logging.error("No keys in json")
+    raise ValueError("No keys in json")
+
+def main():
+    """Основная логика работы бота."""
     # check_tokens()
+    timestamp = int(time.time())- 1296000 - 1296000- 1296000- 1296000- 1296000
+    # print(timestamp)
+    payload = {'from_date': timestamp} 
+    homework = get_api_answer(payload)
+    # print(homework)
+    message = parse_status(homework)
+    print(message)
+    bot = telegram.Bot(token=telegram_token)  # type: ignore
+    # send_message(bot, message)
     
-    payload = {'from_date': 1549962000}
-    print(get_api_answer(payload))
-    # pprint(type(a))
-    # # print(json.loads(a))
+
+    # while True:
+    #     try:
+            
+
+    #     except Exception as error:
+    #         message = f'Сбой в работе программы: {error}'
+    #         ...
+    #     ...
+
+if __name__ == '__main__':
+    main()
     
-    # check_response(get_api_answer(payload))
-    
-    # print(parse_status(get_api_answer(payload)))
-    
-    # send_message('1111')

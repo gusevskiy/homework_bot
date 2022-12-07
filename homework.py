@@ -32,15 +32,18 @@ HOMEWORK_VERDICTS = {
 }
 
 def check_tokens():
+    """Проверяет переменные в .env"""
     if None in (practicum_token, telegram_token, telegram_chat_id):
         logging.warning("need a token, check the instructions .env.example")
         raise Exception("need a token, check the instructions .env.example")
 
 def send_message(bot, message):
+    """Отправляет сообщение в telegram"""
     bot.send_message(telegram_chat_id, message)
 
 
 def get_api_answer(timestamp):
+    """Получает json() от API ресурса ENDPOINT"""
     homework_statuses = requests.get(
             ENDPOINT, headers=HEADERS, params=timestamp
         )
@@ -51,39 +54,39 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
+    """Проверяет структуру данных, словарь или нет"""
     if type(response) is not dict:
         logging.error("need a dict")
         raise ValueError("need a dict")
 
 
 def parse_status(homework):
-    homework_name = homework['homeworks'][0]['homework_name']
-    verdict = homework['homeworks'][0]['reviewer_comment']
-    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    """Извлекает из всего API последнию работу и возвращвет ее статус"""
+    if "homeworks" in homework.keys():
+        homework_sort = sorted(
+            homework["homeworks"], key=lambda d: d['date_updated']
+        )[::-1]
+        homework_name = homework_sort[0]['homework_name']
+        verdict = HOMEWORK_VERDICTS[homework_sort[0]['status']]
+        return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    logging.error("No keys in json")
+    raise ValueError("No keys in json")
 
 
 def main():
     """Основная логика работы бота."""
     check_tokens()
-    timestamp = int(time.time())- 1296000 - 1296000
-    # print(timestamp)
-    payload = {'from_date': timestamp} 
-    dict_api = get_api_answer(payload)
-    # print(dict_api)
-    message = parse_status(dict_api)
-    # print(message)
-    bot = telegram.Bot(token=telegram_token)
-    send_message(bot, message)
-    
-
-    # while True:
-    #     try:
-            
-
-    #     except Exception as error:
-    #         message = f'Сбой в работе программы: {error}'
-    #         ...
-    #     ...
+    while True:
+        try:
+            timestamp = int(time.time())- 1296000 - 1296000
+            payload = {'from_date': timestamp} 
+            dict_api = get_api_answer(payload)
+            message = parse_status(dict_api)
+            bot = telegram.Bot(telegram_token)  # type: ignore
+            send_message(bot, message)
+        except Exception as error:
+            message = f'Сбой в работе программы: {error}'
+        time.sleep(RETRY_PERIOD)
 
 if __name__ == '__main__':
     main()
