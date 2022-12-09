@@ -1,10 +1,7 @@
 from http import HTTPStatus
 import os
-from pprint import pprint
 import logging
 import requests
-from telegram.ext import Updater, Filters, MessageHandler, CommandHandler
-from telegram import ReplyKeyboardMarkup
 from dotenv import load_dotenv
 import telegram
 import time
@@ -12,7 +9,10 @@ import time
 logging.basicConfig(
     filename='log_bot.log',
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO)
+    level=logging.DEBUG,
+    encoding='utf8',
+    filemode='w'
+)
 
 load_dotenv()
 
@@ -36,6 +36,7 @@ def check_tokens():
     if None in (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID):
         logging.critical("need a token, check the instructions .env.example")
         raise Exception("need a token, check the instructions .env.example")
+    logging.info("check_tokens = True")
 
 def send_message(bot, message):
     """Отправляет сообщение в telegram"""
@@ -47,12 +48,14 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Получает json() от API ресурса ENDPOINT"""
+    """Получает json() от API ресурса ENDPOINT
+    возвращает json() file"""
     try:
         homework_statuses = requests.get(
             ENDPOINT, headers=HEADERS, params=timestamp
         )
         if homework_statuses.status_code == HTTPStatus.OK:
+            logging.info("get_api_answer = True")
             return homework_statuses.json()
     except requests.exceptions.RequestException as e:
         logging.error(e, "нет данных")
@@ -63,26 +66,31 @@ def get_api_answer(timestamp):
         raise Exception(f'Ошибка {status_code}')
 
 def check_response(response):
-    """Проверяет структуру данных, словарь или нет"""
-    logging.debug('Начало проверки')
+    """Проверяет структуру данных, словарь с ключом key(homeworks) и
+    наличие списка в values([list]),
+    возвращает значение первый элемент словаря"""
     if not isinstance(response, dict):
         raise TypeError('Ошибка в типе ответа API')
     if 'homeworks' not in response or 'current_date' not in response:
         raise Exception('Пустой ответ от API')
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
-        raise TypeError('Homeworks не является списком')
-    return homeworks
+        raise TypeError('homeworks не является списком')
+    logging.debug('check_response')
+    return homeworks[0]
 
 
 def parse_status(homework):
     """Извлекает из всего API последнию работу и возвращвет ее статус"""
     if 'homework_name' not in homework:
+        logging.error('В ответе отсутсвует ключ homework_name')
         raise KeyError('В ответе отсутсвует ключ homework_name')
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_VERDICTS:
+        logging.error(f'Неизвестный статус работы - {homework_status}')
         raise ValueError(f'Неизвестный статус работы - {homework_status}')
+    logging.info('func - parse_status = True')
     return(
         'Изменился статус проверки работы "{homework_name}" {verdict}'
     ).format(
@@ -93,20 +101,21 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
+    bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
+    minus_three_weeks = 3888000
+    timestamp = int(time.time()) - minus_three_weeks
+    payload = {'from_date': timestamp}
     check_tokens()
-    # check_response
     while True:
         try:
-            timestamp = int(time.time())- 1296000 - 1296000
-            payload = {'from_date': timestamp} 
-            dict_api = get_api_answer(payload)
-            message = parse_status(dict_api)
-            bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
+            response = get_api_answer(payload)
+            data = check_response(response)
+            message = parse_status(data)
             send_message(bot, message)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
+            send_message(bot, message)
         time.sleep(RETRY_PERIOD)
 
 if __name__ == '__main__':
     main()
-    
