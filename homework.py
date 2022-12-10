@@ -31,20 +31,24 @@ HOMEWORK_VERDICTS = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
+
 def check_tokens():
     """Проверяет переменные в .env"""
     if None in (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID):
         logging.critical("need a token, check the instructions .env.example")
-        raise Exception("need a token, check the instructions .env.example")
-    logging.info("check_tokens = True")
+        raise ValueError("need a token, check the instructions .env.example")
+
 
 def send_message(bot, message):
     """Отправляет сообщение в telegram"""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logging.debug("Сообщение отправлено")
-    except Exception as e:
-        logging.error("Сообщение не отправилось")
+        if 'Ошибка' in message:
+            logging.error("Сообщение об ошибке отправлено")
+            raise ValueError("Сообщение об ошибке отправлено")
+        logging.debug("Сообщение о статусе работы отправлено")
+    except Exception:
+        logging.error("Сообщение о статусе работы не отправилось")
 
 
 def get_api_answer(timestamp):
@@ -55,15 +59,15 @@ def get_api_answer(timestamp):
             ENDPOINT, headers=HEADERS, params=timestamp
         )
         if homework_statuses.status_code == HTTPStatus.OK:
-            logging.info("get_api_answer = True")
             return homework_statuses.json()
     except requests.exceptions.RequestException as e:
         logging.error(e, "нет данных")
         raise ConnectionError(e, "JSON не соответствие")
     if homework_statuses.status_code != HTTPStatus.OK:
         status_code = homework_statuses.status_code
-        logging.error(f'Ошибка {status_code}')
+        logging.error(f'Ошибка {status_code}', exc_info=True)
         raise Exception(f'Ошибка {status_code}')
+
 
 def check_response(response):
     """Проверяет структуру данных, словарь с ключом key(homeworks) и
@@ -76,7 +80,6 @@ def check_response(response):
     homeworks = response.get('homeworks')
     if not isinstance(homeworks, list):
         raise TypeError('homeworks не является списком')
-    logging.debug('check_response')
     return homeworks[0]
 
 
@@ -90,8 +93,7 @@ def parse_status(homework):
     if homework_status not in HOMEWORK_VERDICTS:
         logging.error(f'Неизвестный статус работы - {homework_status}')
         raise ValueError(f'Неизвестный статус работы - {homework_status}')
-    logging.info('func - parse_status = True')
-    return(
+    return (
         'Изменился статус проверки работы "{homework_name}" {verdict}'
     ).format(
         homework_name=homework_name,
@@ -113,9 +115,10 @@ def main():
             message = parse_status(data)
             send_message(bot, message)
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
+            message = f'Сбой в работе программы: {error}, см file log_bot.log'
             send_message(bot, message)
         time.sleep(RETRY_PERIOD)
+
 
 if __name__ == '__main__':
     main()
