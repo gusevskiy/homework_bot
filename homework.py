@@ -33,14 +33,16 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """Проверяет переменные в .env."""
+    """Проверяет переменные в .env.
+    """
     if None in (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID):
         logging.critical("need a token, check the instructions .env.example")
         raise ValueError("need a token, check the instructions .env.example")
 
 
 def send_message(bot, message):
-    """Отправляет сообщение в telegram."""
+    """Отправляет сообщение в telegram.
+    """
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         if 'Ошибка' in message:
