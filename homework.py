@@ -33,14 +33,14 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """Проверяет переменные в .env"""
+    """Проверяет переменные в .env."""
     if None in (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID):
         logging.critical("need a token, check the instructions .env.example")
         raise ValueError("need a token, check the instructions .env.example")
 
 
 def send_message(bot, message):
-    """Отправляет сообщение в telegram"""
+    """Отправляет сообщение в telegram."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         if 'Ошибка' in message:
@@ -52,8 +52,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(timestamp):
-    """Получает json() от API ресурса ENDPOINT
-    возвращает json() file"""
+    """Получает json() от API ресурса ENDPOINT возвращает json() file."""
     try:
         homework_statuses = requests.get(
             ENDPOINT, headers=HEADERS, params=timestamp
@@ -70,9 +69,11 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """Проверяет структуру данных, словарь с ключом key(homeworks) и
-    наличие списка в values([list]),
-    возвращает значение первый элемент словаря"""
+    """
+    Проверяет структуру данных, словарь с ключом key(homeworks) и
+    наличие списка в values([list]).,
+    возвращает значение первый элемент словаря
+    """
     if not isinstance(response, dict):
         raise TypeError('Ошибка в типе ответа API')
     if 'homeworks' not in response or 'current_date' not in response:
@@ -84,7 +85,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """Извлекает из всего API последнию работу и возвращвет ее статус"""
+    """Извлекает из всего API последнию работу и возвращвет ее статус."""
     if 'homework_name' not in homework:
         logging.error('В ответе отсутсвует ключ homework_name')
         raise KeyError('В ответе отсутсвует ключ homework_name')
