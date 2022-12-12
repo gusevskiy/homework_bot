@@ -1,10 +1,12 @@
 from http import HTTPStatus
 import os
+import time
 import logging
+
 import requests
 from dotenv import load_dotenv
 import telegram
-import time
+from exceptions import JsonConnectError
 
 logging.basicConfig(
     filename='log_bot.log',
@@ -32,26 +34,23 @@ HOMEWORK_VERDICTS = {
 }
 
 
-def check_tokens():
+def check_tokens() -> bool:
     """Проверяет переменные в env."""
-    if None in (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID):
-        logging.critical("need a token, check the instructions .env.example")
-        raise ValueError("need a token, check the instructions .env.example")
+    logging.info("TOKEN in place")
+    return all (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
 
 
-def send_message(bot, message):
+def send_message(bot: telegram.bot.Bot, message: str):
     """Отправляет сообщение в telegram."""
     try:
+        logging.info("Bot started")
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        if 'Ошибка' in message:
-            logging.error("Сообщение об ошибке отправлено")
-            raise ValueError("Сообщение об ошибке отправлено")
         logging.debug("Сообщение о статусе работы отправлено")
-    except Exception:
-        logging.error("Сообщение о статусе работы не отправилось")
+    except telegram.error.TelegramError as e:
+        logging.error(e, "Сообщение о статусе работы не отправилось")
 
 
-def get_api_answer(timestamp):
+def get_api_answer(timestamp: int) -> dict:
     """Получает json() от API ресурса ENDPOINT возвращает json() file."""
     try:
         homework_statuses = requests.get(
@@ -60,15 +59,14 @@ def get_api_answer(timestamp):
         if homework_statuses.status_code == HTTPStatus.OK:
             return homework_statuses.json()
     except requests.exceptions.RequestException as e:
-        logging.error(e, "нет данных")
-        raise ConnectionError(e, "JSON не соответствие")
+        raise JsonConnectError(e, "JSON не соответствие")
+    # pytest просил это?
     if homework_statuses.status_code != HTTPStatus.OK:
         status_code = homework_statuses.status_code
-        logging.error(f'Ошибка {status_code}', exc_info=True)
         raise Exception(f'Ошибка {status_code}')
 
 
-def check_response(response):
+def check_response(response: dict) -> list:
     """Проверяет структуру данных.
     словарь с ключом key(homeworks) и
     наличие списка в values([list]).,
@@ -84,7 +82,7 @@ def check_response(response):
     return homeworks[0]
 
 
-def parse_status(homework):
+def parse_status(homework: dict) -> str:
     """Извлекает из всего API последнию работу и возвращвет ее статус."""
     if 'homework_name' not in homework:
         logging.error('В ответе отсутсвует ключ homework_name')
