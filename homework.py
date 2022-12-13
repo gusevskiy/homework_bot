@@ -1,26 +1,29 @@
 from http import HTTPStatus
 import os
+import sys
 import time
 import logging
+from logging.handlers import RotatingFileHandler
 
 import requests
 from dotenv import load_dotenv
 import telegram
-from exceptions import JsonConnectError
-
-logging.basicConfig(
-    filename='log_bot.log',
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG,
-    encoding='utf8',
-    filemode='w'
-)
+from exceptions import (
+    RequeststError,
+    StatusNot200,
+    DataNotDict,
+    ErrorNotKey,
+    DataNotLict,
+    ErrorSent,
+)                   
 
 load_dotenv()
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+
+UNIT_WEEK = 1296000
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -35,23 +38,23 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens() -> bool:
-    """Проверяет переменные в env."""
-    logging.info("TOKEN in place")
-    return all (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
+    """Check variables(TOKENS) в env."""
+    logging.info("TOKEN received")
+    return all ([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot: telegram.bot.Bot, message: str):
-    """Отправляет сообщение в telegram."""
+    """Send message in telegram."""
     try:
         logging.info("Bot started")
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logging.debug("Сообщение о статусе работы отправлено")
+        logging.debug("Status message: sent.")
     except telegram.error.TelegramError as e:
-        logging.error(e, "Сообщение о статусе работы не отправилось")
+        logging.error(e, "Status message: not sent")
 
 
 def get_api_answer(timestamp: int) -> dict:
-    """Получает json() от API ресурса ENDPOINT возвращает json() file."""
+    """Receives json() from API resource ENDPOINT return json() file."""
     try:
         homework_statuses = requests.get(
             ENDPOINT, headers=HEADERS, params=timestamp
@@ -59,39 +62,43 @@ def get_api_answer(timestamp: int) -> dict:
         if homework_statuses.status_code == HTTPStatus.OK:
             return homework_statuses.json()
     except requests.exceptions.RequestException as e:
-        raise JsonConnectError(e, "JSON не соответствие")
-    # pytest просил это?
+        raise RequeststError(e, "Error in json()")
+    # pytest просит это?
     if homework_statuses.status_code != HTTPStatus.OK:
         status_code = homework_statuses.status_code
-        raise Exception(f'Ошибка {status_code}')
+        raise StatusNot200(f'Error {status_code}')
 
 
 def check_response(response: dict) -> list:
-    """Проверяет структуру данных.
-    словарь с ключом key(homeworks) и
-    наличие списка в values([list]).,
-    возвращает значение первый элемент словаря
+    """
+    Check structure data.
+    Dictionary with key(homeworks).
+    List in values().
+    Return first element dictionary.
     """
     if not isinstance(response, dict):
-        raise TypeError('Ошибка в типе ответа API')
+        raise DataNotDict(
+            'Error in type API', 'received = ', type(response)
+        )
     if 'homeworks' not in response or 'current_date' not in response:
-        raise Exception('Пустой ответ от API')
+        raise ErrorNotKey('In API no necessary key')
     homeworks = response.get('homeworks')
+    # pytest просит это?
     if not isinstance(homeworks, list):
-        raise TypeError('homeworks не является списком')
+        raise DataNotLict(
+            'homeworks not a list', 'received = ', type(homeworks)
+        )
     return homeworks[0]
 
 
 def parse_status(homework: dict) -> str:
-    """Извлекает из всего API последнию работу и возвращвет ее статус."""
+    """Retrieves the latest work from the entire API and returns its status."""
     if 'homework_name' not in homework:
-        logging.error('В ответе отсутсвует ключ homework_name')
-        raise KeyError('В ответе отсутсвует ключ homework_name')
+        raise ErrorNotKey('In response no key(homework_name)')
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_VERDICTS:
-        logging.error(f'Неизвестный статус работы - {homework_status}')
-        raise ValueError(f'Неизвестный статус работы - {homework_status}')
+        raise ErrorNotKey(f'Unknown job status - {homework_status}')
     return (
         'Изменился статус проверки работы "{homework_name}" {verdict}'
     ).format(
@@ -102,22 +109,57 @@ def parse_status(homework: dict) -> str:
 
 def main():
     """Основная логика работы бота."""
+    if not check_tokens():
+        message = 'NO TOKEN, bot dissabled'
+        logging.critical(message)
+        sys.exit(message)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
-    minus_three_weeks = 3888000
-    timestamp = int(time.time()) - minus_three_weeks
+    timestamp = int(time.time() - (UNIT_WEEK * 3))
     payload = {'from_date': timestamp}
-    check_tokens()
+    prev_massage = ''
     while True:
         try:
             response = get_api_answer(payload)
             data = check_response(response)
-            message = parse_status(data)
-            send_message(bot, message)
-        except Exception as error:
-            message = f'Сбой в работе программы: {error}, см file log_bot.log'
-            send_message(bot, message)
+            if data:
+                message = parse_status(data)
+
+            if message != prev_massage:
+                send_message(bot, message)
+                prev_massage = message
+                logger.info(message)
+            else:
+                message = "Статус работы прежний"
+                send_message(bot, message)
+                logger.info(message)
+            
+        except ErrorSent as error:
+            message = f'The program does not work: {error}, см file log_bot.log'
+            logging.error(message, exc_info=True)
+            
+        except Exception as e:
+            logging.error(e, exc_info=True)
         time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        filename='log_bot.log',
+        format='%(asctime)s - %(name)s - [%(levelname)s] - %(message)s',
+        level=logging.DEBUG,
+        encoding='utf8',
+        filemode='w',
+    )
+    
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    handler = RotatingFileHandler(
+        'my_logger.log', maxBytes=10000, backupCount=5
+    )
+    logger.addHandler(handler)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s - (%(filename)s).%(funcName)s(%(lineno)d)'
+    )
+    handler.setFormatter(formatter)
+    
     main()
