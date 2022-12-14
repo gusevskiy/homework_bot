@@ -131,9 +131,9 @@ def main():
             if message != prev_massage:
                 send_message(bot, message)
                 prev_massage = message
-                logger.info(message)
+                logging.info(message)
             else:
-                logger.info(message)
+                logging.info(message)
             
         except ErrorSent as error:
             message = f'The program does not work: {error}, см file log_bot.log'
