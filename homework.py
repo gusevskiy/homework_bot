@@ -3,7 +3,6 @@ import os
 import sys
 import time
 import logging
-from logging.handlers import RotatingFileHandler
 import requests
 
 from dotenv import load_dotenv
@@ -15,7 +14,7 @@ from exceptions import (
     ErrorNotKey,
     DataNotLict,
     ErrorSent,
-)                   
+)
 
 load_dotenv()
 
@@ -40,7 +39,7 @@ HOMEWORK_VERDICTS = {
 def check_tokens() -> bool:
     """Check variables(TOKENS) в env."""
     logging.info("TOKEN received")
-    return all ([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
+    return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot: telegram.bot.Bot, message: str) -> None:
@@ -106,7 +105,7 @@ def parse_status(homework: dict) -> str:
         'Изменился статус проверки работы "{homework_name}" {verdict}'
     ).format(
         homework_name=homework_name,
-        verdict=HOMEWORK_VERDICTS[homework_status]) # type: ignore    
+        verdict=HOMEWORK_VERDICTS[homework_status])  # type: ignore
     return result
 
 
@@ -134,9 +133,9 @@ def main():
                 logging.info(message)
             else:
                 logging.info(message)
-            
+
         except ErrorSent as error:
-            message = f'The program does not work: {error}, см file log_bot.log'
+            message = f'The program does not work: {error}, view log_bot.log'
             logging.error(message, exc_info=True)
 
         except Exception as e:
