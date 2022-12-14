@@ -152,14 +152,5 @@ if __name__ == '__main__':
         encoding='utf8',
         filemode='w',
     )
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    handler = RotatingFileHandler(
-        'my_logger.log', maxBytes=10000, backupCount=5
-    )
-    logger.addHandler(handler)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s - (%(filename)s).%(funcName)s(%(lineno)d)'
-    )
-    handler.setFormatter(formatter)
+
     main()
