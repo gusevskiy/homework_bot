@@ -4,8 +4,8 @@ import sys
 import time
 import logging
 from logging.handlers import RotatingFileHandler
-
 import requests
+
 from dotenv import load_dotenv
 import telegram
 from exceptions import (
@@ -53,20 +53,23 @@ def send_message(bot: telegram.bot.Bot, message: str) -> None:
         logging.error(e, "Status message: not sent")
 
 
-def get_api_answer(timestamp: int) -> None:
+def get_api_answer(timestamp: int) -> dict:
     """Receives json() from API resource ENDPOINT return json() file."""
+    timestamp = timestamp or int(time.time())
     try:
         homework_statuses = requests.get(
-            ENDPOINT, headers=HEADERS, params=timestamp
+            ENDPOINT, headers=HEADERS, params={'from_date': timestamp}
         )
-        if homework_statuses.status_code == HTTPStatus.OK:
-            return homework_statuses.json()
+        if homework_statuses.status_code != HTTPStatus.OK:
+            status_code = homework_statuses.status_code
+            raise StatusNot200(f'Error {status_code}')
+        return homework_statuses.json()
     except requests.exceptions.RequestException as e:
         raise RequeststError(e, "Error in json()")
     # pytest просит это?
-    if homework_statuses.status_code != HTTPStatus.OK:
-        status_code = homework_statuses.status_code
-        raise StatusNot200(f'Error {status_code}')
+    # if homework_statuses.status_code != HTTPStatus.OK:
+    #     status_code = homework_statuses.status_code
+    #     raise StatusNot200(f'Error {status_code}')
 
 
 def check_response(response: dict) -> list:
@@ -88,7 +91,7 @@ def check_response(response: dict) -> list:
         raise DataNotLict(
             'homeworks not a list', 'received = ', type(homeworks)
         )
-    return homeworks[0]
+    return homeworks
 
 
 def parse_status(homework: dict) -> str:
@@ -99,12 +102,12 @@ def parse_status(homework: dict) -> str:
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_VERDICTS:
         raise ErrorNotKey(f'Unknown job status - {homework_status}')
-    return (
+    result = (
         'Изменился статус проверки работы "{homework_name}" {verdict}'
     ).format(
         homework_name=homework_name,
-        verdict=HOMEWORK_VERDICTS[homework_status]
-    )
+        verdict=HOMEWORK_VERDICTS[homework_status]) # type: ignore    
+    return result
 
 
 def main():
@@ -115,22 +118,21 @@ def main():
         sys.exit(message)
     bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
     timestamp = int(time.time() - (UNIT_WEEK * 3))
-    payload = {'from_date': timestamp}
+    # payload = {'from_date': timestamp}
     prev_massage = ''
     while True:
         try:
-            response = get_api_answer(payload)
+            response = get_api_answer(timestamp)
             data = check_response(response)
             if data:
-                message = parse_status(data)
-
+                message = parse_status(data[0])
+            else:
+                message = "Статус работы прежний"
             if message != prev_massage:
                 send_message(bot, message)
                 prev_massage = message
                 logger.info(message)
             else:
-                message = "Статус работы прежний"
-                send_message(bot, message)
                 logger.info(message)
             
         except ErrorSent as error:
