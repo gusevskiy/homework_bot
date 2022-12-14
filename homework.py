@@ -43,7 +43,7 @@ def check_tokens() -> bool:
     return all ([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
-def send_message(bot: telegram.bot.Bot, message: str):
+def send_message(bot: telegram.bot.Bot, message: str) -> None:
     """Send message in telegram."""
     try:
         logging.info("Bot started")
@@ -53,7 +53,7 @@ def send_message(bot: telegram.bot.Bot, message: str):
         logging.error(e, "Status message: not sent")
 
 
-def get_api_answer(timestamp: int) -> dict:
+def get_api_answer(timestamp: int) -> None:
     """Receives json() from API resource ENDPOINT return json() file."""
     try:
         homework_statuses = requests.get(
@@ -136,7 +136,7 @@ def main():
         except ErrorSent as error:
             message = f'The program does not work: {error}, см file log_bot.log'
             logging.error(message, exc_info=True)
-            
+
         except Exception as e:
             logging.error(e, exc_info=True)
         time.sleep(RETRY_PERIOD)
@@ -150,7 +150,6 @@ if __name__ == '__main__':
         encoding='utf8',
         filemode='w',
     )
-    
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     handler = RotatingFileHandler(
@@ -161,5 +160,4 @@ if __name__ == '__main__':
         '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s - (%(filename)s).%(funcName)s(%(lineno)d)'
     )
     handler.setFormatter(formatter)
-    
     main()
