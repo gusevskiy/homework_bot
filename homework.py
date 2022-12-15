@@ -112,7 +112,8 @@ def main():
         with open('.env', 'r', encoding='utf8') as f:
             tex = f.read()
             reg = r"\b[A-Z]+_[A-Z]+\b|\b[A-Z]+_[A-Z]+_[A-Z]+"
-        logging.critical(f'Check tokens: {(re.findall(reg, tex))}')
+            message = f'Check tokens: {(re.findall(reg, tex))}'
+        logging.critical(message)
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
     timestamp = int(time.time() - (UNIT_WEEK * 3))
