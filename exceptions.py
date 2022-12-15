@@ -3,26 +3,26 @@ class RequeststError(Exception):
     pass
 
 
-class StatusNot200(Exception):
+class StatusNot200Error(Exception):
     """Ststus.code return != 200."""
     pass
 
 
-class DataNotDict(TypeError):
+class DataNotDictError(TypeError):
     """When data is not dict."""
     pass
 
 
-class DataNotLict(TypeError):
+class DataNotLictError(TypeError):
     """When data is not list."""
     pass
 
 
-class ErrorNotKey(KeyError):
+class NotKeyError(KeyError):
     """When no key."""
     pass
 
 
-class ErrorSent(Exception):
+class SentError(Exception):
     """When message not sent"""
     pass
