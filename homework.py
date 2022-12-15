@@ -25,7 +25,7 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 UNIT_WEEK = 1296000
 
 RETRY_PERIOD = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
+ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homewor_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
@@ -144,13 +144,14 @@ def main():
 
 
 if __name__ == '__main__':
-    FORMAT = '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s'
     logging.basicConfig(
-        filename='log_bot.log',
-        format=FORMAT,
-        level=logging.DEBUG,
-        encoding='utf8',
-        filemode='w',
+        level=logging.INFO,
+        handlers=[
+            logging.FileHandler(
+                os.path.abspath('main.log'), mode='a', encoding='UTF-8'),
+            logging.StreamHandler(stream=sys.stdout)],
+        format='%(asctime)s, %(levelname)s, %(funcName)s, '
+               '%(lineno)s, %(name)s, %(message)s'
     )
 
     main()
