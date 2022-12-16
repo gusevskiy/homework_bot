@@ -1,6 +1,5 @@
 from http import HTTPStatus
 import os
-import re
 import sys
 import time
 import logging
@@ -38,14 +37,14 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens() -> bool:
     """Check variables(TOKENS) в env."""
-    logging.info("Start bot")
+    logging.info("Checking tokens")
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot: telegram.bot.Bot, message: str) -> None:
     """Send message in telegram."""
     try:
-        logging.info("Bot started")
+        logging.info("Start sending message")
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logging.debug("Status message: sent.")
     except telegram.error.TelegramError as e:
@@ -61,7 +60,11 @@ def get_api_answer(timestamp: int) -> dict:
         )
         if response.status_code != HTTPStatus.OK:
             status_code = response.status_code
-            raise StatusNot200Error(f'Error reason {status_code}')
+            raise StatusNot200Error(
+                f'Error {status_code}, '
+                f'[url resource] {response.url}, '
+                f'[reason] {response.reason}, '
+            )
         return response.json()
     except requests.exceptions.RequestException as e:
         raise RequeststError(f"Error in json() {e}")
@@ -107,16 +110,14 @@ def parse_status(homework: dict) -> str:
 
 
 def main():
-    """Основная логика работы бота."""
+    """Main logic of the bot."""
     if not check_tokens():
-        # тесты не проходят, требуют critical поближе наверно)))
-        logging.critical("test")
-        with open('.env', 'r', encoding='utf8') as f:
-            tex = f.read()
-            reg = r"\b[A-Z]+_[A-Z]+\b|\b[A-Z]+_[A-Z]+_[A-Z]+"
-            message = f'Check tokens: {(re.findall(reg, tex))}'
-        logging.critical(message)
-        sys.exit()
+        tokens = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
+        for token in tokens:
+            if os.getenv(token) is None:
+                message = 'Error token ', token
+                logging.critical(message)
+                sys.exit(f'Error token {token}')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
     timestamp = int(time.time() - (UNIT_WEEK * 3))
     prev_massage = ''
@@ -135,7 +136,7 @@ def main():
                 logging.info(message)
 
         except Exception as e:
-            message = f'The program does not work: {e}, view log_bot.log'
+            message = f'The program does not work: {e}, view main.log'
             logging.error(message, exc_info=True)
             if message != prev_massage:
                 send_message(bot, message)
@@ -144,14 +145,13 @@ def main():
 
 
 if __name__ == '__main__':
+    FORMAT = '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s'
     logging.basicConfig(
-        level=logging.INFO,
-        handlers=[
-            logging.FileHandler(
-                os.path.abspath('main.log'), mode='a', encoding='UTF-8'),
-            logging.StreamHandler(stream=sys.stdout)],
-        format='%(asctime)s, %(levelname)s, %(funcName)s, '
-               '%(lineno)s, %(name)s, %(message)s'
+        filename='log_bot.log',
+        format=FORMAT,
+        level=logging.DEBUG,
+        encoding='utf8',
+        filemode='w',
     )
 
     main()
