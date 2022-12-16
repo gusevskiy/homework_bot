@@ -24,7 +24,7 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 UNIT_WEEK = 1296000
 
 RETRY_PERIOD = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homewor_statuses/'
+ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
@@ -112,12 +112,12 @@ def parse_status(homework: dict) -> str:
 def main():
     """Main logic of the bot."""
     if not check_tokens():
+        logging.critical('TOKENS failed verification')
         tokens = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
         for token in tokens:
             if os.getenv(token) is None:
                 message = 'Error token ', token
-                logging.critical(message)
-                sys.exit(f'Error token {token}')
+        sys.exit(logging.critical(message))
     bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
     timestamp = int(time.time() - (UNIT_WEEK * 3))
     prev_massage = ''
@@ -129,11 +129,6 @@ def main():
                 message = parse_status(data[0])
             else:
                 message = "Статус работы прежний"
-            if message != prev_massage:
-                send_message(bot, message)
-                prev_massage = message
-            else:
-                logging.info(message)
 
         except Exception as e:
             message = f'The program does not work: {e}, view main.log'
@@ -141,17 +136,24 @@ def main():
             if message != prev_massage:
                 send_message(bot, message)
                 prev_massage = message
-        time.sleep(RETRY_PERIOD)
+        finally:
+            if message != prev_massage:
+                send_message(bot, message)
+                prev_massage = message
+            else:
+                logging.info(message)
+            time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
-    FORMAT = '%(asctime)s - %(name)s - [%(levelname)s] - %(message)s'
     logging.basicConfig(
-        filename='log_bot.log',
-        format=FORMAT,
-        level=logging.DEBUG,
-        encoding='utf8',
-        filemode='w',
+        level=logging.INFO,
+        handlers=[
+            logging.FileHandler(
+                os.path.abspath('main.log'), mode='w', encoding='UTF-8'),
+            logging.StreamHandler(stream=sys.stdout)],
+        format='%(asctime)s, %(levelname)s, %(funcName)s, '
+               '%(lineno)s, %(name)s, %(message)s'
     )
 
     main()
