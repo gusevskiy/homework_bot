@@ -58,7 +58,6 @@ def get_api_answer(timestamp: int) -> dict:
         response = requests.get(
             ENDPOINT, headers=HEADERS, params={'from_date': timestamp}
         )
-        print(response)
         if response.status_code != HTTPStatus.OK:
             status_code = response.status_code
             raise StatusNot200Error(
@@ -113,13 +112,12 @@ def parse_status(homework: dict) -> str:
 def main():
     """Main logic of the bot."""
     if not check_tokens():
-        logging.critical('TOKENS failed verification')
         tokens = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
+        token_error = ''
         for token in tokens:
             if not os.getenv(token):
-                message = f'Error token {token}'
-                logging.critical(message)
-        sys.exit(logging.critical('Error TOKEN'))
+                token_error += f' {token}'
+        sys.exit(logging.critical(f'Error TOKEN {token_error}'))
     bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
     timestamp = int(time.time() - (DAYS_15 * 2))
     prev_massage = ''
@@ -151,7 +149,8 @@ if __name__ == '__main__':
             logging.FileHandler(
                 os.path.abspath('main.log'), mode='w', encoding='UTF-8'
             ),
-            logging.StreamHandler(stream=sys.stdout)],
+            logging.StreamHandler(stream=sys.stdout)
+        ],
         format='%(asctime)s, %(levelname)s, %(funcName)s, '
                '%(lineno)s, %(name)s, %(message)s'
     )
