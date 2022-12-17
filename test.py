@@ -36,7 +36,7 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 tokens = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
 for token in tokens:
-    if os.getenv(token) is None:
+    if not os.getenv(token):
         print(token)
     # token = os.getenv(tokens[token])
     # if os.getenv(token) is None:

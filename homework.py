@@ -21,7 +21,7 @@ PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
-UNIT_WEEK = 1296000
+DAYS_15 = 15 * 24 * 60 * 60
 
 RETRY_PERIOD = 600
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
@@ -58,6 +58,7 @@ def get_api_answer(timestamp: int) -> dict:
         response = requests.get(
             ENDPOINT, headers=HEADERS, params={'from_date': timestamp}
         )
+        print(response)
         if response.status_code != HTTPStatus.OK:
             status_code = response.status_code
             raise StatusNot200Error(
@@ -115,11 +116,12 @@ def main():
         logging.critical('TOKENS failed verification')
         tokens = ('PRACTICUM_TOKEN', 'TELEGRAM_TOKEN', 'TELEGRAM_CHAT_ID')
         for token in tokens:
-            if os.getenv(token) is None:
-                message = 'Error token ', token
-        sys.exit(logging.critical(message))
+            if not os.getenv(token):
+                message = f'Error token {token}'
+                logging.critical(message)
+        sys.exit(logging.critical('Error TOKEN'))
     bot = telegram.Bot(token=TELEGRAM_TOKEN)  # type: ignore
-    timestamp = int(time.time() - (UNIT_WEEK * 3))
+    timestamp = int(time.time() - (DAYS_15 * 2))
     prev_massage = ''
     while True:
         try:
@@ -133,9 +135,6 @@ def main():
         except Exception as e:
             message = f'The program does not work: {e}, view main.log'
             logging.error(message, exc_info=True)
-            if message != prev_massage:
-                send_message(bot, message)
-                prev_massage = message
         finally:
             if message != prev_massage:
                 send_message(bot, message)
@@ -150,7 +149,8 @@ if __name__ == '__main__':
         level=logging.INFO,
         handlers=[
             logging.FileHandler(
-                os.path.abspath('main.log'), mode='w', encoding='UTF-8'),
+                os.path.abspath('main.log'), mode='w', encoding='UTF-8'
+            ),
             logging.StreamHandler(stream=sys.stdout)],
         format='%(asctime)s, %(levelname)s, %(funcName)s, '
                '%(lineno)s, %(name)s, %(message)s'
